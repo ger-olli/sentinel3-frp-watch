@@ -1,34 +1,3 @@
 {
-  "checked_at_utc": "2026-08-27T12:43:27.604222+00:00",
-  "polygon": [
-    [
-      21.30252,
-      44.83812
-    ],
-    [
-      21.21291,
-      44.79014
-    ],
-    [
-      20.99648,
-      44.89789
-    ],
-    [
-      21.10188,
-      44.96886
-    ],
-    [
-      21.30252,
-      44.83812
-    ]
-  ],
-  "source": "Copernicus Sentinel-3 SLSTR SL_2_FRP",
-  "processed_products": [],
-  "new_hotspots": [],
-  "errors": [],
-  "catalogue_products_intersecting_polygon": 0,
-  "pending_product_count": 0,
-  "last_product_start_before_run": null,
-  "last_product_start_after_run": null,
-  "new_hotspot_count": 0
+  "status": "not_run_yet"
 }
