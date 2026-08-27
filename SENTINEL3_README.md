@@ -1,40 +1,45 @@
-# Sentinel-3 SLSTR FRP Hotspot Watch
+# Sentinel-3 SLSTR FRP Hotspot Watch v3
 
-GitHub-Actions-Überwachung für Copernicus Sentinel-3 SLSTR `SL_2_FRP___`.
+Diese Version filtert bereits **serverseitig im Copernicus Data Space OData-Katalog** auf das Überwachungspolygon.
 
-## Funktionsweise
+Dadurch werden nicht mehr bis zu 1000 globale `SL_2_FRP___`-Produkte geladen und erst lokal aussortiert.
 
-1. Öffentliche Copernicus Data Space OData-Suche nach `SENTINEL-3` / `SL_2_FRP___`.
-2. GeoFootprint wird gegen das Überwachungspolygon geprüft.
-3. Nur passende Produkte werden authentifiziert heruntergeladen.
-4. FRP-NetCDF-Dateien werden aus dem Produkt gelesen.
-5. Nur tatsächlich vorhandene positive FRP-Pixel innerhalb des Polygons werden übernommen.
-6. `s3_seen.json` verhindert Doppelmeldungen.
-7. `s3_cursor.json` merkt sich den letzten erfolgreich verarbeiteten Produktzeitpunkt.
+## Kerneigenschaften
+
+- `Collection = SENTINEL-3`
+- `productType = SL_2_FRP___`
+- räumlicher OData-Filter `OData.CSC.Intersects(...)`
+- 14-Tage-Suchfenster
+- NRT (`MAR_O_NR`) wird gegenüber NTC (`O_NT`) bevorzugt, wenn beide dieselbe Aufnahme repräsentieren
+- nur räumlich relevante Produkte werden heruntergeladen
+- echte FRP-Pixel werden aus NetCDF gelesen
+- Pixel werden nochmals exakt gegen das Polygon geprüft
+- Deduplizierung über `s3_seen.json`
+- Cursor über `s3_cursor.json`
+- keine Interpolation oder Schätzung
 
 ## GitHub Secrets
 
-Unter `Settings → Secrets and variables → Actions`:
+Unter:
+
+`Settings → Secrets and variables → Actions`
+
+müssen vorhanden sein:
 
 - `CDSE_USERNAME`
 - `CDSE_PASSWORD`
 
-Das sind die Zugangsdaten deines kostenlosen Copernicus Data Space Ecosystem Kontos.
+## Workflow
 
-## Dateien
+`.github/workflows/sentinel3-frp-watch-v3.yml`
 
-- `s3_watch.py`
-- `s3-requirements.txt`
-- `.github/workflows/sentinel3-frp-watch.yml`
+läuft zweimal pro Stunde (`:13` und `:43`) und kann manuell gestartet werden.
+
+## Ausgaben
+
 - `data/s3_status.json`
 - `data/s3_events.jsonl`
 - `data/s3_seen.json`
 - `data/s3_cursor.json`
 
-## Zeitplan
-
-Der Workflow läuft zweimal pro Stunde (`:11` und `:41`). Sentinel-3 ist ein polarumlaufendes System; ein 10-Minuten-Polling wie bei MTG bringt daher wenig.
-
-## Datenprinzip
-
-Keine Schätzungen und keine Interpolation. Wenn die reale Produktstruktur nicht zu den erwarteten FRP-Dateien/Variablen passt, wird dies in `s3_status.json` als Fehler protokolliert.
+Beim ersten v3-Lauf wird nur das neueste relevante Produkt verarbeitet, um keinen historischen Alarmsturm zu erzeugen. Danach werden alle neuen räumlich relevanten Produkte chronologisch verarbeitet.
