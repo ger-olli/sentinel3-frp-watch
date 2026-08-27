@@ -1,5 +1,4 @@
 
-import io
 import json
 import os
 import sys
@@ -10,14 +9,15 @@ from pathlib import Path
 import netCDF4 as nc
 import numpy as np
 import requests
-from shapely.geometry import Point, Polygon, shape
+from shapely.geometry import Point, Polygon
 
-POLYGON = Polygon([
+POLYGON_COORDS = [
     (21.30252, 44.83812),
     (21.21291, 44.79014),
     (20.99648, 44.89789),
     (21.10188, 44.96886),
-])
+]
+POLYGON = Polygon(POLYGON_COORDS)
 
 USERNAME = os.environ.get("CDSE_USERNAME")
 PASSWORD = os.environ.get("CDSE_PASSWORD")
@@ -37,7 +37,7 @@ TMP_ZIP = Path("data/s3_product.zip")
 TMP_DIR = Path("data/s3_product")
 
 session = requests.Session()
-session.headers.update({"User-Agent": "sentinel3-frp-watch/1.0"})
+session.headers.update({"User-Agent": "sentinel3-frp-watch/3.0"})
 
 def load_json(path, default):
     if path.exists():
@@ -48,7 +48,13 @@ def load_json(path, default):
     return default
 
 def save_json(path, obj):
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(obj, indent=2), encoding="utf-8")
+
+def polygon_wkt():
+    pts = POLYGON_COORDS + [POLYGON_COORDS[0]]
+    coords = ", ".join(f"{lon} {lat}" for lon, lat in pts)
+    return f"POLYGON(({coords}))"
 
 def get_token():
     r = session.post(TOKEN_URL, data={
@@ -59,41 +65,65 @@ def get_token():
     }, timeout=60)
     r.raise_for_status()
     data = r.json()
-    if "access_token" not in data:
+    token = data.get("access_token")
+    if not token:
         raise RuntimeError("No access_token returned by CDSE identity service.")
-    return data["access_token"]
+    return token
 
-def query_products():
+def query_products(days=14):
     now = datetime.now(timezone.utc)
-    start = now - timedelta(days=3)
+    start = now - timedelta(days=days)
 
-    # Public catalogue query; product type and recent time window.
+    spatial = f"OData.CSC.Intersects(area=geography'SRID=4326;{polygon_wkt()}')"
+
     filt = (
         "Collection/Name eq 'SENTINEL-3' and "
         "Attributes/OData.CSC.StringAttribute/any(att:"
         "att/Name eq 'productType' and "
         "att/OData.CSC.StringAttribute/Value eq 'SL_2_FRP___') and "
-        f"ContentDate/Start ge {start.isoformat().replace('+00:00','Z')}"
+        f"ContentDate/Start ge {start.isoformat().replace('+00:00','Z')} and "
+        + spatial
     )
 
     params = {
         "$filter": filt,
         "$orderby": "ContentDate/Start asc",
         "$top": "200",
-        "$select": "Id,Name,ContentDate,GeoFootprint",
+        "$select": "Id,Name,ContentDate,GeoFootprint,S3Path",
     }
-    r = session.get(CATALOGUE, params=params, timeout=60)
-    r.raise_for_status()
-    return r.json().get("value", [])
 
-def intersects_polygon(product):
-    gf = product.get("GeoFootprint")
-    if not gf:
-        return False
-    try:
-        return shape(gf).intersects(POLYGON)
-    except Exception:
-        return False
+    r = session.get(CATALOGUE, params=params, timeout=90)
+    r.raise_for_status()
+    return r.json().get("value", []), r.url
+
+def prefer_nrt(products):
+    # Same acquisition can exist as both NRT (MAR_O_NR) and NTC (O_NT).
+    # Prefer NRT when both exist, while keeping a fallback if no NRT version exists.
+    grouped = {}
+    for p in products:
+        name = p.get("Name", "")
+        start = (p.get("ContentDate") or {}).get("Start")
+        if not start:
+            continue
+
+        # Acquisition identity based on platform + first sensing timestamp embedded in the filename.
+        parts = name.split("_")
+        platform = name[:3]
+        sensing = ""
+        for part in parts:
+            if len(part) >= 15 and part[:8].isdigit() and "T" in part:
+                sensing = part[:15]
+                break
+        key = (platform, sensing or start)
+
+        score = 2 if "MAR_O_NR" in name else (1 if "_O_NT_" in name else 0)
+        prev = grouped.get(key)
+        if prev is None or score > prev[0]:
+            grouped[key] = (score, p)
+
+    selected = [v[1] for v in grouped.values()]
+    selected.sort(key=lambda p: (p.get("ContentDate") or {}).get("Start", ""))
+    return selected
 
 def download_product(product_id, token):
     headers = {"Authorization": f"Bearer {token}"}
@@ -106,36 +136,40 @@ def download_product(product_id, token):
                     f.write(chunk)
 
 def unzip_product():
-    if TMP_DIR.exists():
-        import shutil
-        shutil.rmtree(TMP_DIR)
+    cleanup_dir_only()
     TMP_DIR.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(TMP_ZIP, "r") as z:
         z.extractall(TMP_DIR)
 
-def all_nc_files():
-    return list(TMP_DIR.rglob("*.nc"))
+def cleanup_dir_only():
+    if TMP_DIR.exists():
+        import shutil
+        shutil.rmtree(TMP_DIR)
+
+def cleanup():
+    try:
+        TMP_ZIP.unlink()
+    except OSError:
+        pass
+    cleanup_dir_only()
 
 def find_frp_files():
-    # Official product commonly contains FRP_in.nc and FRP_an.nc.
-    files = all_nc_files()
+    files = list(TMP_DIR.rglob("*.nc"))
     preferred = [p for p in files if p.name in {"FRP_in.nc", "FRP_an.nc"}]
     return preferred if preferred else files
 
 def pick_var(ds, names):
-    low = {k.lower(): k for k in ds.variables.keys()}
+    lower = {k.lower(): k for k in ds.variables}
     for name in names:
-        if name.lower() in low:
-            return ds.variables[low[name.lower()]]
+        if name.lower() in lower:
+            return ds.variables[lower[name.lower()]]
     for k, v in ds.variables.items():
         lk = k.lower()
-        if any(name.lower() in lk for name in names):
+        if any(n.lower() in lk for n in names):
             return v
     return None
 
-def as_float_array(var):
-    if var is None:
-        return None
+def to_float_array(var):
     arr = np.array(var[:])
     if np.ma.isMaskedArray(arr):
         arr = arr.filled(np.nan)
@@ -156,26 +190,28 @@ def extract_hotspots(product_name):
             lonv = pick_var(ds, ["longitude", "lon"])
             frpv = pick_var(ds, ["FRP", "fire_radiative_power"])
             uncv = pick_var(ds, ["FRP_uncertainty", "frp_uncertainty", "uncertainty"])
+            confv = pick_var(ds, ["confidence", "fire_confidence"])
             classv = pick_var(ds, ["classification", "hotspot_classification", "class"])
-            timev = pick_var(ds, ["time", "time_stamp", "timestamp"])
 
-            mappings.append({
+            mapping = {
                 "file": path.name,
                 "latitude": None if latv is None else latv.name,
                 "longitude": None if lonv is None else lonv.name,
                 "frp": None if frpv is None else frpv.name,
                 "frp_uncertainty": None if uncv is None else uncv.name,
+                "confidence": None if confv is None else confv.name,
                 "classification": None if classv is None else classv.name,
-                "time": None if timev is None else timev.name,
-            })
+            }
+            mappings.append(mapping)
 
             if latv is None or lonv is None or frpv is None:
                 continue
 
-            lat = as_float_array(latv).reshape(-1)
-            lon = as_float_array(lonv).reshape(-1)
-            frp = as_float_array(frpv).reshape(-1)
-            unc = None if uncv is None else as_float_array(uncv).reshape(-1)
+            lat = to_float_array(latv).reshape(-1)
+            lon = to_float_array(lonv).reshape(-1)
+            frp = to_float_array(frpv).reshape(-1)
+            unc = None if uncv is None else to_float_array(uncv).reshape(-1)
+            conf = None if confv is None else to_float_array(confv).reshape(-1)
             cls = None if classv is None else np.array(classv[:]).reshape(-1)
 
             n = min(len(lat), len(lon), len(frp))
@@ -185,35 +221,26 @@ def extract_hotspots(product_name):
                     continue
                 if fv <= 0:
                     continue
+
                 pt = Point(float(lo), float(la))
                 if not (POLYGON.contains(pt) or POLYGON.touches(pt)):
                     continue
 
-                item = {
+                hotspots.append({
                     "latitude": float(la),
                     "longitude": float(lo),
                     "frp_mw": float(fv),
                     "frp_uncertainty_mw": None if unc is None or i >= len(unc) or not np.isfinite(unc[i]) else float(unc[i]),
+                    "confidence": None if conf is None or i >= len(conf) or not np.isfinite(conf[i]) else float(conf[i]),
                     "classification": None if cls is None or i >= len(cls) else str(cls[i]),
                     "source_file": path.name,
                     "source": "Sentinel-3 SLSTR SL_2_FRP",
                     "product_name": product_name,
-                }
-                hotspots.append(item)
+                })
         finally:
             ds.close()
 
     return hotspots, mappings
-
-def cleanup():
-    for p in [TMP_ZIP]:
-        try:
-            p.unlink()
-        except OSError:
-            pass
-    if TMP_DIR.exists():
-        import shutil
-        shutil.rmtree(TMP_DIR)
 
 def main():
     checked = datetime.now(timezone.utc).isoformat()
@@ -224,43 +251,51 @@ def main():
         "checked_at_utc": checked,
         "polygon": list(POLYGON.exterior.coords),
         "source": "Copernicus Sentinel-3 SLSTR SL_2_FRP",
+        "query_window_days": 14,
         "processed_products": [],
         "new_hotspots": [],
         "errors": [],
     }
 
     try:
-        products = [p for p in query_products() if intersects_polygon(p)]
-        status["catalogue_products_intersecting_polygon"] = len(products)
+        products, request_url = query_products(days=14)
+        status["catalogue_request_url"] = request_url
+        status["catalogue_products_spatially_filtered"] = len(products)
+
+        selected = prefer_nrt(products)
+        status["catalogue_products_after_nrt_dedup"] = len(selected)
 
         last = cursor.get("last_product_start")
         pending = []
-        for p in products:
+        for p in selected:
             start = (p.get("ContentDate") or {}).get("Start")
-            if not start:
-                continue
-            if last is None or start > last:
+            if start and (last is None or start > last):
                 pending.append(p)
 
-        # First run: only latest intersecting product, to avoid historical flood.
+        # First run processes only newest relevant product to avoid a historic flood.
         if last is None and pending:
             pending = pending[-1:]
 
+        status["last_product_start_before_run"] = last
         status["pending_product_count"] = len(pending)
+
         token = get_token() if pending else None
         all_new = []
         last_success = last
 
         for product in pending:
             pr = {
-                "id": product["Id"],
-                "name": product["Name"],
-                "content_start": product["ContentDate"]["Start"],
+                "id": product.get("Id"),
+                "name": product.get("Name"),
+                "content_start": (product.get("ContentDate") or {}).get("Start"),
+                "s3path": product.get("S3Path"),
             }
+
             try:
                 download_product(product["Id"], token)
                 unzip_product()
                 hotspots, mappings = extract_hotspots(product["Name"])
+
                 pr["inside_polygon"] = len(hotspots)
                 pr["dataset_mapping"] = mappings
 
@@ -274,17 +309,24 @@ def main():
                         h["source_file"],
                     ])
                     h["_key"] = key
+                    h["content_start"] = pr["content_start"]
+
                     if key not in seen:
                         seen.add(key)
                         new_for_product.append(h)
                         all_new.append(h)
 
                 pr["new_hotspot_count"] = len(new_for_product)
-                last_success = product["ContentDate"]["Start"]
+
+                last_success = pr["content_start"]
                 save_json(CURSOR_PATH, {"last_product_start": last_success})
+
             except Exception as e:
                 pr["error"] = str(e)
-                status["errors"].append({"product": product["Name"], "error": str(e)})
+                status["errors"].append({
+                    "product": pr["name"],
+                    "error": str(e),
+                })
                 status["processed_products"].append(pr)
                 cleanup()
                 break
@@ -292,7 +334,6 @@ def main():
             status["processed_products"].append(pr)
             cleanup()
 
-        status["last_product_start_before_run"] = last
         status["last_product_start_after_run"] = last_success
         status["new_hotspots"] = all_new
         status["new_hotspot_count"] = len(all_new)
@@ -300,7 +341,10 @@ def main():
         if all_new:
             with EVENTS_PATH.open("a", encoding="utf-8") as f:
                 for h in all_new:
-                    f.write(json.dumps({"detected_at_utc": checked, **h}) + "\n")
+                    f.write(json.dumps({
+                        "detected_at_utc": checked,
+                        **h
+                    }) + "\n")
 
     except Exception as e:
         status["errors"].append({"general": str(e)})
