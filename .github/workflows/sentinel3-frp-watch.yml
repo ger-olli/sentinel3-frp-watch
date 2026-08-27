@@ -1,8 +1,8 @@
-name: Sentinel-3 FRP Hotspot Watch
+name: Sentinel-3 FRP Hotspot Watch v3
 
 on:
   schedule:
-    - cron: "11,41 * * * *"
+    - cron: "13,43 * * * *"
   workflow_dispatch:
 
 permissions:
