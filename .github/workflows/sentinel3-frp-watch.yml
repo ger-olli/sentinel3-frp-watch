@@ -31,11 +31,14 @@ jobs:
           CDSE_PASSWORD: ${{ secrets.CDSE_PASSWORD }}
         run: python s3_watch.py
 
+      - name: Build persistent 24h event window
+        run: python build_recent_events.py --events data/s3_events.jsonl --output data/s3_recent_events.json --hours 24
+
       - name: Publish Sentinel-3 status
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/s3_status.json data/s3_seen.json data/s3_events.jsonl data/s3_cursor.json || true
+          git add data/s3_status.json data/s3_seen.json data/s3_events.jsonl data/s3_recent_events.json data/s3_cursor.json || true
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
