@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-08-29T11:37:21.532840+00:00",
+  "generated_at_utc": "2026-08-29T11:46:58.385922+00:00",
   "window_hours": 24,
   "source_events_file": "data/s3_events.jsonl",
   "event_count": 0,
