@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-08-29T13:07:17.334709+00:00",
+  "checked_at_utc": "2026-08-29T13:16:58.841026+00:00",
   "polygon": [
     [
       21.30252,
@@ -27,7 +27,7 @@
   "processed_products": [],
   "new_hotspots": [],
   "errors": [],
-  "catalogue_request_url": "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?%24filter=Collection%2FName+eq+%27SENTINEL-3%27+and+Attributes%2FOData.CSC.StringAttribute%2Fany%28att%3Aatt%2FName+eq+%27productType%27+and+att%2FOData.CSC.StringAttribute%2FValue+eq+%27SL_2_FRP___%27%29+and+ContentDate%2FStart+ge+2026-08-15T13%3A07%3A17.334903Z+and+OData.CSC.Intersects%28area%3Dgeography%27SRID%3D4326%3BPOLYGON%28%2821.30252+44.83812%2C+21.21291+44.79014%2C+20.99648+44.89789%2C+21.10188+44.96886%2C+21.30252+44.83812%29%29%27%29&%24orderby=ContentDate%2FStart+asc&%24top=200&%24select=Id%2CName%2CContentDate%2CGeoFootprint%2CS3Path",
+  "catalogue_request_url": "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?%24filter=Collection%2FName+eq+%27SENTINEL-3%27+and+Attributes%2FOData.CSC.StringAttribute%2Fany%28att%3Aatt%2FName+eq+%27productType%27+and+att%2FOData.CSC.StringAttribute%2FValue+eq+%27SL_2_FRP___%27%29+and+ContentDate%2FStart+ge+2026-08-15T13%3A16%3A58.841269Z+and+OData.CSC.Intersects%28area%3Dgeography%27SRID%3D4326%3BPOLYGON%28%2821.30252+44.83812%2C+21.21291+44.79014%2C+20.99648+44.89789%2C+21.10188+44.96886%2C+21.30252+44.83812%29%29%27%29&%24orderby=ContentDate%2FStart+asc&%24top=200&%24select=Id%2CName%2CContentDate%2CGeoFootprint%2CS3Path",
   "catalogue_products_spatially_filtered": 82,
   "catalogue_products_after_nrt_dedup": 43,
   "last_product_start_before_run": "2026-08-29T09:17:15.414327Z",
