@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-08-30T11:07:14.074471+00:00",
+  "checked_at_utc": "2026-08-30T11:16:39.435248+00:00",
   "polygon": [
     [
       21.30252,
@@ -24,61 +24,14 @@
   ],
   "source": "Copernicus Sentinel-3 SLSTR SL_2_FRP",
   "query_window_days": 14,
-  "processed_products": [
-    {
-      "id": "03322a4e-e232-4836-9e02-b4c971d584e6",
-      "name": "S3A_SL_2_FRP____20260830T085105_20260830T085405_20260830T105011_0180_143_221______MAR_O_NR_003.SEN3",
-      "content_start": "2026-08-30T08:51:04.665345Z",
-      "s3path": "/eodata/Sentinel-3/SLSTR/SL_2_FRP___/2026/08/30/S3A_SL_2_FRP____20260830T085105_20260830T085405_20260830T105011_0180_143_221______MAR_O_NR_003.SEN3",
-      "inside_polygon": 0,
-      "dataset_mapping": [
-        {
-          "file": "FRP_Merged_MWIR1kmStandard_SWIR1km.nc",
-          "latitude": "latitude",
-          "longitude": "longitude",
-          "frp": "FRP_SWIR",
-          "frp_uncertainty": "FRP_uncertainty_SWIR",
-          "confidence": "confidence_SWIR_SAA",
-          "classification": null
-        },
-        {
-          "file": "FRP_MWIR1km_alternative.nc",
-          "latitude": "latitude",
-          "longitude": "longitude",
-          "frp": "FRP_MWIR",
-          "frp_uncertainty": "FRP_uncertainty_MWIR",
-          "confidence": "confidence_MWIR",
-          "classification": "classification"
-        },
-        {
-          "file": "FRP_SWIR500m.nc",
-          "latitude": "latitude_SWIR_500m",
-          "longitude": "longitude_SWIR_500m",
-          "frp": "FRP_SWIR_500m",
-          "frp_uncertainty": "FRP_uncertainty_SWIR_500m",
-          "confidence": "confidence_SWIR_SAA_500m",
-          "classification": null
-        },
-        {
-          "file": "FRP_MWIR1km_standard.nc",
-          "latitude": "latitude",
-          "longitude": "longitude",
-          "frp": "FRP_MWIR",
-          "frp_uncertainty": "FRP_MWIR_uncertainty",
-          "confidence": "confidence_MWIR",
-          "classification": "classification"
-        }
-      ],
-      "new_hotspot_count": 0
-    }
-  ],
+  "processed_products": [],
   "new_hotspots": [],
   "errors": [],
-  "catalogue_request_url": "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?%24filter=Collection%2FName+eq+%27SENTINEL-3%27+and+Attributes%2FOData.CSC.StringAttribute%2Fany%28att%3Aatt%2FName+eq+%27productType%27+and+att%2FOData.CSC.StringAttribute%2FValue+eq+%27SL_2_FRP___%27%29+and+ContentDate%2FStart+ge+2026-08-16T11%3A07%3A14.074659Z+and+OData.CSC.Intersects%28area%3Dgeography%27SRID%3D4326%3BPOLYGON%28%2821.30252+44.83812%2C+21.21291+44.79014%2C+20.99648+44.89789%2C+21.10188+44.96886%2C+21.30252+44.83812%29%29%27%29&%24orderby=ContentDate%2FStart+asc&%24top=200&%24select=Id%2CName%2CContentDate%2CGeoFootprint%2CS3Path",
+  "catalogue_request_url": "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?%24filter=Collection%2FName+eq+%27SENTINEL-3%27+and+Attributes%2FOData.CSC.StringAttribute%2Fany%28att%3Aatt%2FName+eq+%27productType%27+and+att%2FOData.CSC.StringAttribute%2FValue+eq+%27SL_2_FRP___%27%29+and+ContentDate%2FStart+ge+2026-08-16T11%3A16%3A39.435461Z+and+OData.CSC.Intersects%28area%3Dgeography%27SRID%3D4326%3BPOLYGON%28%2821.30252+44.83812%2C+21.21291+44.79014%2C+20.99648+44.89789%2C+21.10188+44.96886%2C+21.30252+44.83812%29%29%27%29&%24orderby=ContentDate%2FStart+asc&%24top=200&%24select=Id%2CName%2CContentDate%2CGeoFootprint%2CS3Path",
   "catalogue_products_spatially_filtered": 83,
   "catalogue_products_after_nrt_dedup": 44,
-  "last_product_start_before_run": "2026-08-29T20:40:10.098039Z",
-  "pending_product_count": 1,
+  "last_product_start_before_run": "2026-08-30T08:51:04.665345Z",
+  "pending_product_count": 0,
   "last_product_start_after_run": "2026-08-30T08:51:04.665345Z",
   "new_hotspot_count": 0
 }
